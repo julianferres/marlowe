@@ -16,4 +16,5 @@ session Test = HOL +
      TransactionBound
      SingleInputTransactions
      StaticAnalysis
+     Auction
 
