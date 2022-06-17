@@ -8,9 +8,6 @@ definition bid :: ByteString where
 definition token_ada :: Token where
 "token_ada = Token [] []"
 
-definition dummy_party :: Party where
-"dummy_party = (PubKey [2])"
-
 type_synonym AuctionWinner = "(Value \<times> Party) option"
 
 record AuctionTerms = owner :: Party
@@ -33,6 +30,16 @@ fun partyToValueId :: "Party \<Rightarrow> ValueId" where
 
 fun remove :: "Party \<Rightarrow> Party list \<Rightarrow> Party list" where
 "remove p ls = filter ((\<noteq>) p) ls"
+
+type_synonym contractLoopType = "AuctionWinner \<times> Party list \<times> Party list \<times> AuctionTerms"
+type_synonym handleChooseType = "AuctionWinner \<times> Party list \<times> Party list \<times> AuctionTerms \<times> Party"
+type_synonym handleDepositType = "AuctionWinner \<times> Party list \<times> Party list \<times> AuctionTerms \<times> Party"
+
+fun evalBoundAuction :: "(contractLoopType + (handleChooseType + handleDepositType)) \<Rightarrow> nat" where
+"evalBoundAuction (Inl (_, ps, qs, _)) = (length ps) + 2 * (length qs)" |
+"evalBoundAuction (Inr (Inl (_, ps, qs, _, _))) = (length ps) + 2 * (length qs)" |
+"evalBoundAuction (Inr (Inr (_, ps, qs, _, _))) = (length ps) + 2 * (length qs)"
+
 
 function (sequential) contractLoop :: "AuctionWinner \<Rightarrow> Party list \<Rightarrow> Party list \<Rightarrow> AuctionTerms \<Rightarrow> Contract"
 and handleChoose :: "AuctionWinner \<Rightarrow> Party list \<Rightarrow> Party list \<Rightarrow> AuctionTerms \<Rightarrow> Party \<Rightarrow> Case"
@@ -58,9 +65,16 @@ where
                                       (deadline terms) (settle m terms))"  
 
   by pat_completeness auto
+termination 
+  apply (relation "measure (evalBoundAuction)")
+  apply simp
+  oops
 
+(*
 fun auction :: "Party \<Rightarrow> int \<Rightarrow> int \<Rightarrow> Party list \<Rightarrow> Slot \<Rightarrow> Contract" where
 "auction own mBid MBid bidders ddl = (contractLoop None [] bidders \<lparr>owner = own, minBid = mBid, maxBid = MBid, deadline = ddl\<rparr>)" 
+
+Finding Lexicographic Orders for Termination Proofs in Isabelle/HOL
 
 
 lemma auctionComputeTransactionIsSafe : "computeTransaction tra sta (auction own mBid MBid bidders ddl)  = TransactionOutput trec \<Longrightarrow> 
@@ -70,3 +84,4 @@ lemma auctionComputeTransactionIsSafe : "computeTransaction tra sta (auction own
 theorem auctionPlayTraceIsSafe : "playTrace sl (auction own mBid MBid bidders ddl) t = TransactionOutput trec \<Longrightarrow>
                                   txOutWarnings trec = []"
   oops
+*)
