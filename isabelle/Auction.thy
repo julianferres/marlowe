@@ -31,15 +31,20 @@ fun partyToValueId :: "Party \<Rightarrow> ValueId" where
 fun remove :: "Party \<Rightarrow> Party list \<Rightarrow> Party list" where
 "remove p ls = filter ((\<noteq>) p) ls"
 
+lemma removePresentElementReducesSize : "p \<in> set ls \<Longrightarrow> length (filter ((\<noteq>) p) ls) < length ls"
+  by (simp add: length_filter_less)
+
+lemma removeAbsentElementMantainsSize : "p \<notin> set ls \<Longrightarrow> length (filter ((\<noteq>) p) ls) = length ls"
+  by (metis (mono_tags, lifting) filter_True)
+
 type_synonym contractLoopType = "AuctionWinner \<times> Party list \<times> Party list \<times> AuctionTerms"
 type_synonym handleChooseType = "AuctionWinner \<times> Party list \<times> Party list \<times> AuctionTerms \<times> Party"
 type_synonym handleDepositType = "AuctionWinner \<times> Party list \<times> Party list \<times> AuctionTerms \<times> Party"
 
 fun evalBoundAuction :: "(contractLoopType + (handleChooseType + handleDepositType)) \<Rightarrow> nat" where
-"evalBoundAuction (Inl (_, ps, qs, _)) = (length ps) + 2 * (length qs)" |
-"evalBoundAuction (Inr (Inl (_, ps, qs, _, _))) = (length ps) + 2 * (length qs)" |
-"evalBoundAuction (Inr (Inr (_, ps, qs, _, _))) = (length ps) + 2 * (length qs)"
-
+"evalBoundAuction (Inl (_, ps, qs, _)) = 2 * length ps + 4 * length qs + 1" |
+"evalBoundAuction (Inr (Inl (_, ps, qs, _, p))) = 2 * length ps + 4 * length qs + (if p \<in> set qs then 0 else 8)" |
+"evalBoundAuction (Inr (Inr (_, ps, qs, _, p))) = 2 * length ps + 4 * length qs + (if p \<in> set ps then 0 else 8)"
 
 function (sequential) contractLoop :: "AuctionWinner \<Rightarrow> Party list \<Rightarrow> Party list \<Rightarrow> AuctionTerms \<Rightarrow> Contract"
 and handleChoose :: "AuctionWinner \<Rightarrow> Party list \<Rightarrow> Party list \<Rightarrow> AuctionTerms \<Rightarrow> Party \<Rightarrow> Case"
@@ -63,19 +68,26 @@ where
 "contractLoop m ps qs terms = (When ( (map (handleChoose m ps qs terms) qs) @ 
                                       (map (handleDeposit m ps qs terms) ps)) 
                                       (deadline terms) (settle m terms))"  
-
   by pat_completeness auto
 termination 
   apply (relation "measure (evalBoundAuction)")
   apply simp
-  oops
+  apply auto 
+  using removePresentElementReducesSize apply fastforce
+  using removeAbsentElementMantainsSize apply fastforce
+  using removePresentElementReducesSize apply fastforce
+  using removeAbsentElementMantainsSize apply fastforce
+  using removePresentElementReducesSize apply fastforce
+  using removeAbsentElementMantainsSize apply fastforce
+  using removePresentElementReducesSize apply fastforce
+  using removeAbsentElementMantainsSize by fastforce
+         
 
-(*
 fun auction :: "Party \<Rightarrow> int \<Rightarrow> int \<Rightarrow> Party list \<Rightarrow> Slot \<Rightarrow> Contract" where
 "auction own mBid MBid bidders ddl = (contractLoop None [] bidders \<lparr>owner = own, minBid = mBid, maxBid = MBid, deadline = ddl\<rparr>)" 
 
+(*
 Finding Lexicographic Orders for Termination Proofs in Isabelle/HOL
-
 
 lemma auctionComputeTransactionIsSafe : "computeTransaction tra sta (auction own mBid MBid bidders ddl)  = TransactionOutput trec \<Longrightarrow> 
                          txOutWarnings trec = []"
