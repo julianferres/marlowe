@@ -71,7 +71,6 @@ where
   by pat_completeness auto
 termination 
   apply (relation "measure (evalBoundAuction)")
-  apply simp
   apply auto 
   using removePresentElementReducesSize apply fastforce
   using removeAbsentElementMantainsSize apply fastforce
