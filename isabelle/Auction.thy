@@ -86,10 +86,68 @@ fun auction :: "Party \<Rightarrow> int \<Rightarrow> int \<Rightarrow> Party li
 "auction own mBid MBid bidders ddl = (contractLoop None [] bidders \<lparr>owner = own, minBid = mBid, maxBid = MBid, deadline = ddl\<rparr>)" 
 
 lemma auctionIsSafe_reduceContractStep : "reduceContractStep env fixSta (auction own mBid MBid bidders ddl) = Reduced wa ef sta cont \<Longrightarrow> wa = ReduceNoWarning"
-  apply auto
   apply (induction bidders)
    apply (simp add: closeIsSafe_reduceContractStep)
   apply simp
   apply (cases "slotInterval env")
   by (smt (z3) ReduceStepResult.inject ReduceStepResult.simps(3) ReduceStepResult.simps(5) old.prod.case)
 
+lemma auctionIsSafe_reductionLoop : "wa = [] \<Longrightarrow> reductionLoop reducedBefore env fixSta (auction own mBid MBid bidders ddl) wa ef = ContractQuiescent reducedAfter reduceWarns pays curState cont \<Longrightarrow> reduceWarns = []"
+  apply (induction reducedBefore env fixSta "(auction own mBid MBid bidders ddl)" wa ef rule:reductionLoop.induct)
+  subgoal for reducedBefore env state warnings payments
+    apply (simp only:reductionLoop.simps[of reducedBefore env state "(auction own mBid MBid
+           bidders ddl)" warnings payments])
+    apply (simp only:reductionLoop.simps[of reducedBefore env state "(auction own mBid MBid
+           bidders ddl)" "[]" payments])
+    apply (induction bidders)
+     apply (metis auction.simps closeIsSafe_reductionLoop contractLoop.simps(1) reductionLoop.simps settle.simps(1))
+    using auctionIsSafe_reduceContractStep closeIsSafe_reductionLoop
+    oops
+
+lemma auctionIsSafe_reduceContractUntilQuiescent : "reduceContractUntilQuiescent env fixSta (auction own mBid MBid bidders ddl) = ContractQuiescent reduced reduceWarns pays curState cont \<Longrightarrow> reduceWarns = []"
+  apply (induction bidders)
+   apply (simp add: closeIsSafe_reduceContractUntilQuiescent)
+  apply simp
+  apply (cases "reduceContractStep env fixSta
+               (contractLoop None [] bidders
+                 \<lparr>owner = own, minBid = mBid,
+                    maxBid = MBid,
+                    deadline = ddl\<rparr>)")
+  oops
+
+
+lemma auctionIsSafe_applyInput : "applyInput env curState head (auction own mBid MBid bidders ddl) = Applied applyWarn newState cont2 \<Longrightarrow> applyWarn = ApplyNoWarning"
+  apply auto
+  apply (induction bidders)
+   apply simp
+  apply (simp)
+  oops
+
+lemma auctionComputeTransactionIsSafe : "computeTransaction tra sta (auction own mBid MBid bidders ddl)  = TransactionOutput trec \<Longrightarrow>
+                         txOutWarnings trec = []"
+  apply (simp only:computeTransaction.simps)
+  apply (auto split:IntervalResult.splits option.splits ApplyAllResult.splits
+              simp del:applyAllLoop.simps)
+  subgoal for env fixSta warnings payments newState cont
+    apply(cases " \<not> warnings \<and>
+        (contractLoop None [] bidders
+          \<lparr>owner = own, minBid = mBid, maxBid = MBid, deadline = ddl\<rparr> =
+         Close \<longrightarrow>
+         accounts sta = [])")
+    apply force
+    apply (simp only:contractLoop.simps)
+    apply (induction bidders)
+    apply (metis TransactionOutput.inject(1) TransactionOutputRecord.select_convs(1) applyAllInputs.simps closeIsSafe_applyAllInputs contractLoop.simps(1) settle.simps(1))
+    apply (simp only:contractLoop.simps handleDeposit.simps handleChoose.simps remove.simps)
+    apply (simp del:applyAllLoop.simps)
+    oops
+
+(*
+lemma auctionComputeTransactionIsSafe : "computeTransaction tra sta (auction own mBid MBid bidders ddl)  = TransactionOutput trec \<Longrightarrow> 
+                         txOutWarnings trec = []"
+  oops
+
+theorem auctionPlayTraceIsSafe : "playTrace sl (auction own mBid MBid bidders ddl) t = TransactionOutput trec \<Longrightarrow>
+                                  txOutWarnings trec = []"
+  oops
+*)
