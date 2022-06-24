@@ -85,14 +85,11 @@ termination
 fun auction :: "Party \<Rightarrow> int \<Rightarrow> int \<Rightarrow> Party list \<Rightarrow> Slot \<Rightarrow> Contract" where
 "auction own mBid MBid bidders ddl = (contractLoop None [] bidders \<lparr>owner = own, minBid = mBid, maxBid = MBid, deadline = ddl\<rparr>)" 
 
-(*
-Finding Lexicographic Orders for Termination Proofs in Isabelle/HOL
+lemma auctionIsSafe_reduceContractStep : "reduceContractStep env fixSta (auction own mBid MBid bidders ddl) = Reduced wa ef sta cont \<Longrightarrow> wa = ReduceNoWarning"
+  apply auto
+  apply (induction bidders)
+   apply (simp add: closeIsSafe_reduceContractStep)
+  apply simp
+  apply (cases "slotInterval env")
+  by (smt (z3) ReduceStepResult.inject ReduceStepResult.simps(3) ReduceStepResult.simps(5) old.prod.case)
 
-lemma auctionComputeTransactionIsSafe : "computeTransaction tra sta (auction own mBid MBid bidders ddl)  = TransactionOutput trec \<Longrightarrow> 
-                         txOutWarnings trec = []"
-  oops
-
-theorem auctionPlayTraceIsSafe : "playTrace sl (auction own mBid MBid bidders ddl) t = TransactionOutput trec \<Longrightarrow>
-                                  txOutWarnings trec = []"
-  oops
-*)
