@@ -93,3 +93,51 @@ lemma auctionIsSafe_reduceContractStep : "reduceContractStep env fixSta (auction
   apply (cases "slotInterval env")
   by (smt (z3) ReduceStepResult.inject ReduceStepResult.simps(3) ReduceStepResult.simps(5) old.prod.case)
 
+
+definition invariantHoldsForAuction :: "AuctionTerms \<Rightarrow> AuctionWinner \<Rightarrow> Party list \<Rightarrow> Party list \<Rightarrow> State \<Rightarrow> bool" where
+"invariantHoldsForAuction terms m ps qs curState = ((\<forall>x . x \<in> set qs \<longrightarrow> \<not> member (partyToValueId x) (boundValues curState))
+                                                  \<and> (\<forall>x . x \<in> set ps \<longrightarrow> findWithDefault 0 (partyToValueId x) (boundValues curState) > 0)
+                                                  \<and> (\<forall>x y . m = Some (x, y) \<longrightarrow> ((lookup (y, token_ada) (accounts curState) = lookup (partyToValueId y) (boundValues curState))
+                                                          \<and> (findWithDefault 0 (partyToValueId y) (boundValues curState) > 0)
+                                                          \<and> (UseValue (partyToValueId y)) = x))
+                                                  \<and> (minBid terms > 0))"
+
+
+lemma applyCasesOfMap : "(\<And> p applyWarn newState cont2. p \<in> set ps \<Longrightarrow> applyCases env curState head [f p] = Applied applyWarn newState cont2 \<Longrightarrow> applyWarn = ApplyNoWarning)
+                               \<Longrightarrow> (applyCases env curState head (map f ps) = Applied applyWarn newState cont2 \<Longrightarrow> applyWarn = ApplyNoWarning)"
+  apply (induction ps)
+    apply simp
+  apply (elim applyCases.elims)
+           apply (smt (verit, ccfv_SIG) Cons_eq_map_conv applyCases.simps(1) insert_iff list.inject list.set(2))
+          apply (metis ApplyResult.inject Cons_eq_map_conv insert_iff list.inject list.set(2))
+         apply (smt (z3) Cons_eq_map_D applyCases.simps(3) insert_iff list.inject list.set(2))
+        apply fastforce
+       apply fastforce
+      apply fastforce
+     apply fastforce
+    apply fastforce
+   apply fastforce
+  by fastforce
+
+lemma applyCasesDistributiveAgainstAppend : "(\<And> applyWarn newState cont . applyCases env curState head l1 = Applied applyWarn newState cont \<Longrightarrow> applyWarn = ApplyNoWarning)
+                         \<Longrightarrow> (\<And> applyWarn newState cont . applyCases env curState head l2 = Applied applyWarn newState cont \<Longrightarrow> applyWarn = ApplyNoWarning)
+                        \<Longrightarrow> (applyCases env curState head (l1 @ l2) = Applied applyWarn newState cont \<Longrightarrow> applyWarn = ApplyNoWarning)"
+  apply (induction l1)
+   apply simp
+  apply (elim applyCases.elims)
+           apply (smt (verit) append_Cons applyCases.simps(1) list.inject)
+          apply (metis ApplyResult.inject append_Cons applyCases.simps(2) list.inject)
+         apply (metis Cons_eq_append_conv applyCases.simps(3) list.inject)
+        apply fastforce
+       apply fastforce
+      apply fastforce
+     apply fastforce
+    apply fastforce
+   apply fastforce
+  by fastforce
+
+lemma applyInputContractLoopNoWarnings : "invariantHoldsForAuction terms m ps qs curState \<Longrightarrow> (\<And> applyWarn newState cont. applyInput env curState head (contractLoop m ps qs terms) = Applied applyWarn newState cont \<Longrightarrow> applyWarn = ApplyNoWarning)"
+  and applyInputHandleChooseNoWarnings : "invariantHoldsForAuction terms m ps qs curState \<Longrightarrow> x \<in> set qs \<Longrightarrow> (\<And> applyWarn newState cont. applyCases env curState head [ handleChoose m ps qs terms x ] = Applied applyWarn newState cont \<Longrightarrow> applyWarn = ApplyNoWarning)"
+and applyInputHandleDepositNoWarnings : "invariantHoldsForAuction terms m ps qs curState \<Longrightarrow> x \<in> set ps \<Longrightarrow> (\<And> applyWarn newState cont. applyCases env curState head [ handleDeposit m ps qs terms x ] = Applied applyWarn newState cont \<Longrightarrow> applyWarn = ApplyNoWarning)"
+    apply (induction m ps qs terms and m ps qs terms x and m ps qs terms x rule:"contractLoop_handleChoose_handleDeposit.induct" )
+  oops
