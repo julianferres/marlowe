@@ -124,24 +124,23 @@ lemma applyCasesDistributiveAgainstAppend : "(\<And> applyWarn newState cont . a
   apply metis
   by metis
 
-
 lemma applyInputContractLoopNoWarnings : "invariantHoldsForAuction terms m ps qs curState \<Longrightarrow> (\<And> applyWarn newState cont. applyInput env curState head (contractLoop m ps qs terms) = Applied applyWarn newState cont \<Longrightarrow> applyWarn = ApplyNoWarning)"
   and applyInputHandleChooseNoWarnings : "invariantHoldsForAuction terms m ps qs curState \<Longrightarrow> x \<in> set qs \<Longrightarrow> (\<And> applyWarn newState cont. applyCases env curState head [ handleChoose m ps qs terms x ] = Applied applyWarn newState cont \<Longrightarrow> applyWarn = ApplyNoWarning)"
 and applyInputHandleDepositNoWarnings : "invariantHoldsForAuction terms m ps qs curState \<Longrightarrow> x \<in> set ps \<Longrightarrow> (\<And> applyWarn newState cont. applyCases env curState head [ handleDeposit m ps qs terms x ] = Applied applyWarn newState cont \<Longrightarrow> applyWarn = ApplyNoWarning)"
     apply (induction m ps qs terms and m ps qs terms x and m ps qs terms x rule:"contractLoop_handleChoose_handleDeposit.induct" )
-      apply (elim applyCases.elims)
-               apply auto
-
-
-      
-(*      
-      defer
-      defer
+  subgoal
+    apply (elim applyCases.elims)
+             apply auto
+    by (metis ApplyResult.inject ApplyResult.simps(3) applyCases.simps(10))
+ defer
       apply simp
      apply (smt (verit, best) applyCasesDistributiveAgainstAppend applyCasesOfMap applyInput.simps(1) contractLoop.simps(2))
-    apply (smt (verit, ccfv_SIG) applyCasesDistributiveAgainstAppend applyCasesOfMap applyInput.simps(1) contractLoop.simps(3))
-   apply (elim applyCases.elims)
-  apply auto
-  apply (metis ApplyResult.inject ApplyResult.simps(3) applyCases.simps(10))
+   apply (smt (verit, ccfv_SIG) applyCasesDistributiveAgainstAppend applyCasesOfMap applyInput.simps(1) contractLoop.simps(3))
+  apply (simp only:handleDeposit.simps)
+  apply (elim applyCases.elims)
+           apply simp_all
+    defer
+    apply (metis Action.simps(5) Case.inject)
+   apply (metis Action.simps(7) Case.inject)
+  by (smt (z3) Action.inject(1) ApplyResult.inject ApplyResult.simps(3) Case.inject applyCases.simps(10) evalValue.simps(12) invariantHoldsForAuction_def)
 
-*)
