@@ -139,8 +139,10 @@ and applyInputHandleDepositNoWarnings : "invariantHoldsForAuction terms m ps qs 
   apply (simp only:handleDeposit.simps)
   apply (elim applyCases.elims)
            apply simp_all
-    defer
-    apply (metis Action.simps(5) Case.inject)
-   apply (metis Action.simps(7) Case.inject)
-  by (smt (z3) Action.inject(1) ApplyResult.inject ApplyResult.simps(3) Case.inject applyCases.simps(10) evalValue.simps(12) invariantHoldsForAuction_def)
-
+    apply (split if_split_asm)
+     apply (split if_split_asm)
+      apply (meson ApplyResult.inject)
+     apply (metis Action.inject(1) Case.inject evalValue.simps(12) invariantHoldsForAuction_def)
+    apply (metis ApplyResult.simps(3) applyCases.simps(10))
+   apply (meson Action.distinct(1) Case.inject)
+  by (meson Action.distinct(3) Case.inject)
