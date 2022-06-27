@@ -108,16 +108,10 @@ lemma applyCasesOfMap : "(\<And> p applyWarn newState cont2. p \<in> set ps \<Lo
   apply (induction ps)
     apply simp
   apply (elim applyCases.elims)
-           apply (smt (verit, ccfv_SIG) Cons_eq_map_conv applyCases.simps(1) insert_iff list.inject list.set(2))
-          apply (metis ApplyResult.inject Cons_eq_map_conv insert_iff list.inject list.set(2))
-         apply (smt (z3) Cons_eq_map_D applyCases.simps(3) insert_iff list.inject list.set(2))
-        apply fastforce
-       apply fastforce
-      apply fastforce
-     apply fastforce
-    apply fastforce
-   apply fastforce
-  by fastforce
+           apply auto
+    apply (smt (verit, ccfv_SIG) ApplyResult.inject applyCases.simps(1))
+   apply (meson ApplyResult.inject)
+  by (metis applyCases.simps(3))
 
 lemma applyCasesDistributiveAgainstAppend : "(\<And> applyWarn newState cont . applyCases env curState head l1 = Applied applyWarn newState cont \<Longrightarrow> applyWarn = ApplyNoWarning)
                          \<Longrightarrow> (\<And> applyWarn newState cont . applyCases env curState head l2 = Applied applyWarn newState cont \<Longrightarrow> applyWarn = ApplyNoWarning)
@@ -125,34 +119,29 @@ lemma applyCasesDistributiveAgainstAppend : "(\<And> applyWarn newState cont . a
   apply (induction l1)
    apply simp
   apply (elim applyCases.elims)
-           apply (smt (verit) append_Cons applyCases.simps(1) list.inject)
-          apply (metis ApplyResult.inject append_Cons applyCases.simps(2) list.inject)
-         apply (metis Cons_eq_append_conv applyCases.simps(3) list.inject)
-        apply fastforce
-       apply fastforce
-      apply fastforce
-     apply fastforce
-    apply fastforce
-   apply fastforce
-  by fastforce
+           apply auto
+    apply metis
+  apply metis
+  by metis
+
 
 lemma applyInputContractLoopNoWarnings : "invariantHoldsForAuction terms m ps qs curState \<Longrightarrow> (\<And> applyWarn newState cont. applyInput env curState head (contractLoop m ps qs terms) = Applied applyWarn newState cont \<Longrightarrow> applyWarn = ApplyNoWarning)"
   and applyInputHandleChooseNoWarnings : "invariantHoldsForAuction terms m ps qs curState \<Longrightarrow> x \<in> set qs \<Longrightarrow> (\<And> applyWarn newState cont. applyCases env curState head [ handleChoose m ps qs terms x ] = Applied applyWarn newState cont \<Longrightarrow> applyWarn = ApplyNoWarning)"
 and applyInputHandleDepositNoWarnings : "invariantHoldsForAuction terms m ps qs curState \<Longrightarrow> x \<in> set ps \<Longrightarrow> (\<And> applyWarn newState cont. applyCases env curState head [ handleDeposit m ps qs terms x ] = Applied applyWarn newState cont \<Longrightarrow> applyWarn = ApplyNoWarning)"
     apply (induction m ps qs terms and m ps qs terms x and m ps qs terms x rule:"contractLoop_handleChoose_handleDeposit.induct" )
+      apply (elim applyCases.elims)
+               apply auto
+
+
+      
+(*      
       defer
       defer
       apply simp
      apply (smt (verit, best) applyCasesDistributiveAgainstAppend applyCasesOfMap applyInput.simps(1) contractLoop.simps(2))
     apply (smt (verit, ccfv_SIG) applyCasesDistributiveAgainstAppend applyCasesOfMap applyInput.simps(1) contractLoop.simps(3))
-  oops
+   apply (elim applyCases.elims)
+  apply auto
+  apply (metis ApplyResult.inject ApplyResult.simps(3) applyCases.simps(10))
 
-
-
-
-
-
-
-
-
-  oops
+*)
