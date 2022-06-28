@@ -132,17 +132,17 @@ and applyInputHandleDepositNoWarnings : "invariantHoldsForAuction terms m ps qs 
     apply (elim applyCases.elims)
              apply auto
     by (metis ApplyResult.inject ApplyResult.simps(3) applyCases.simps(10))
- defer
-      apply simp
-     apply (smt (verit, best) applyCasesDistributiveAgainstAppend applyCasesOfMap applyInput.simps(1) contractLoop.simps(2))
-   apply (smt (verit, ccfv_SIG) applyCasesDistributiveAgainstAppend applyCasesOfMap applyInput.simps(1) contractLoop.simps(3))
-  apply (simp only:handleDeposit.simps)
-  apply (elim applyCases.elims)
-           apply simp_all
+  subgoal
+    apply (simp only:handleDeposit.simps)
+    apply (elim applyCases.elims)
+             apply simp_all
     apply (split if_split_asm)
-     apply (split if_split_asm)
-      apply (meson ApplyResult.inject)
-     apply (metis Action.inject(1) Case.inject evalValue.simps(12) invariantHoldsForAuction_def)
-    apply (metis ApplyResult.simps(3) applyCases.simps(10))
-   apply (meson Action.distinct(1) Case.inject)
-  by (meson Action.distinct(3) Case.inject)
+       apply (split if_split_asm)
+        apply (meson ApplyResult.inject)
+       apply (metis Action.inject(1) Case.inject evalValue.simps(12) invariantHoldsForAuction_def)
+      apply (metis ApplyResult.simps(3) applyCases.simps(10))
+     apply (meson Action.distinct(1) Case.inject)
+    by (meson Action.distinct(3) Case.inject)
+    apply simp
+   apply (smt (verit, best) applyCasesDistributiveAgainstAppend applyCasesOfMap applyInput.simps(1) contractLoop.simps(2))
+  by (smt (verit, ccfv_SIG) applyCasesDistributiveAgainstAppend applyCasesOfMap applyInput.simps(1) contractLoop.simps(3))
