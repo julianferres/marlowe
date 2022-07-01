@@ -144,5 +144,6 @@ and applyInputHandleDepositNoWarnings : "invariantHoldsForAuction terms m ps qs 
      apply (meson Action.distinct(1) Case.inject)
     by (meson Action.distinct(3) Case.inject)
     apply simp
+    apply (metis ApplyResult.simps(3) applyInput.simps(2) applyInput.simps(3) settle.elims)
    apply (smt (verit, best) applyCasesDistributiveAgainstAppend applyCasesOfMap applyInput.simps(1) contractLoop.simps(2))
   by (smt (verit, ccfv_SIG) applyCasesDistributiveAgainstAppend applyCasesOfMap applyInput.simps(1) contractLoop.simps(3))
