@@ -65,6 +65,7 @@ where
                                   (contractLoop m ps' qs terms))))" |
 
 "contractLoop m [] [] terms = settle None terms" |
+"contractLoop m [] [] terms = settle m terms" |
 "contractLoop m ps qs terms = (When ( (map (handleChoose m ps qs terms) qs) @ 
                                       (map (handleDeposit m ps qs terms) ps)) 
                                       (deadline terms) (settle m terms))"  
