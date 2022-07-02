@@ -92,6 +92,7 @@ definition invariantHoldsForAuction :: "AuctionTerms \<Rightarrow> AuctionWinner
                                                   \<and> (\<forall>x y . m = Some (x, y) \<longrightarrow> ((lookup (y, token_ada) (accounts curState) = lookup (partyToValueId y) (boundValues curState))
                                                           \<and> (findWithDefault 0 (partyToValueId y) (boundValues curState) > 0)
                                                           \<and> (UseValue (partyToValueId y)) = x))
+                                                  \<and> (\<forall>x y env token. m = Some (x, y) \<longrightarrow> evalValue env curState x \<le> moneyInAccount y token (accounts curState))
                                                   \<and> (minBid terms > 0))"
 
 lemma applyCasesOfMap : "(\<And> p applyWarn newState cont2. p \<in> set ps \<Longrightarrow> applyCases env curState head [f p] = Applied applyWarn newState cont2 \<Longrightarrow> applyWarn = ApplyNoWarning)
@@ -139,6 +140,10 @@ and applyInputHandleDepositNoWarnings : "invariantHoldsForAuction terms m ps qs 
    apply (smt (verit, best) applyCasesDistributiveAgainstAppend applyCasesOfMap applyInput.simps(1) contractLoop.simps(2))
   by (smt (verit, ccfv_SIG) applyCasesDistributiveAgainstAppend applyCasesOfMap applyInput.simps(1) contractLoop.simps(3))
 
+lemma reduceContractStepPay_preservesCont : "reduceContractStep env fixSta (Pay accId payee token val cont) = Reduced wa ef sta cont2 \<Longrightarrow>
+                                             cont2 = cont"
+  apply auto
+  by (smt (verit, best) ReduceStepResult.inject giveMoney.simps old.prod.case)
 
 lemma auctionSettlementSafe_reduceContractStepEmpty : "invariantHoldsForAuction terms m [] [] fixSta \<Longrightarrow>
                                                        reduceContractStep env fixSta (contractLoop m [] [] terms) = Reduced wa ef sta cont \<Longrightarrow> cont = Close"
@@ -146,32 +151,7 @@ lemma auctionSettlementSafe_reduceContractStepEmpty : "invariantHoldsForAuction 
   apply (cases m)
    apply (simp add: closeIdemp_reduceContractStep)
   apply (auto simp del:reduceContractStep.simps)
-  apply auto
-proof -
-  fix a :: Value and b :: Party
-  assume a1: "(let moneyToPay = evalValue env fixSta a in if moneyToPay \<le> 0 then let warning = ReduceNonPositivePay b (Party (owner terms)) token_ada moneyToPay in Reduced warning ReduceNoPayment fixSta Close else let balance = moneyInAccount b token_ada (accounts fixSta); paidMoney = min balance moneyToPay; newBalance = balance - paidMoney; newAccs = updateMoneyInAccount b token_ada newBalance (accounts fixSta); warning = if paidMoney < moneyToPay then ReducePartialPay b (Party (owner terms)) token_ada paidMoney moneyToPay else ReduceNoWarning; (payment, finalAccs) = giveMoney b (Party (owner terms)) token_ada paidMoney newAccs in Reduced warning payment (fixSta\<lparr>accounts := finalAccs\<rparr>) Close) = Reduced wa ef sta cont"
-  have f2: "\<forall>r ra s c rb rc sa ca. (Reduced r ra s c = Reduced rb rc sa ca) = (r = rb \<and> ra = rc \<and> s = sa \<and> c = ca)"
-    by blast
-  have f3: "(moneyInAccount b token_ada (accounts fixSta) \<le> evalValue env fixSta a) = (moneyInAccount b token_ada (accounts fixSta) + - 1 * evalValue env fixSta a \<le> 0)"
-    by auto
-  obtain rr :: "ReduceEffect \<times> ((Party \<times> Token) \<times> int) list \<Rightarrow> ReduceEffect" and pps :: "ReduceEffect \<times> ((Party \<times> Token) \<times> int) list \<Rightarrow> ((Party \<times> Token) \<times> int) list" where
-f4: "giveMoney b (Party (owner terms)) token_ada (if moneyInAccount b token_ada (accounts fixSta) + - 1 * evalValue env fixSta a \<le> 0 then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a) (updateMoneyInAccount b token_ada (moneyInAccount b token_ada (accounts fixSta) + - 1 * (if moneyInAccount b token_ada (accounts fixSta) + - 1 * evalValue env fixSta a \<le> 0 then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a)) (accounts fixSta)) = (rr (giveMoney b (Party (owner terms)) token_ada (if moneyInAccount b token_ada (accounts fixSta) + - 1 * evalValue env fixSta a \<le> 0 then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a) (updateMoneyInAccount b token_ada (moneyInAccount b token_ada (accounts fixSta) + - 1 * (if moneyInAccount b token_ada (accounts fixSta) + - 1 * evalValue env fixSta a \<le> 0 then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a)) (accounts fixSta))), pps (giveMoney b (Party (owner terms)) token_ada (if moneyInAccount b token_ada (accounts fixSta) + - 1 * evalValue env fixSta a \<le> 0 then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a) (updateMoneyInAccount b token_ada (moneyInAccount b token_ada (accounts fixSta) + - 1 * (if moneyInAccount b token_ada (accounts fixSta) + - 1 * evalValue env fixSta a \<le> 0 then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a)) (accounts fixSta))))"
-  by (meson old.prod.exhaust)
-  { assume "Reduced (ReducePartialPay b (Party (owner terms)) token_ada (if moneyInAccount b token_ada (accounts fixSta) + - 1 * evalValue env fixSta a \<le> 0 then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a) (evalValue env fixSta a)) (rr (giveMoney b (Party (owner terms)) token_ada (if moneyInAccount b token_ada (accounts fixSta) + - 1 * evalValue env fixSta a \<le> 0 then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a) (updateMoneyInAccount b token_ada (moneyInAccount b token_ada (accounts fixSta) + - 1 * (if moneyInAccount b token_ada (accounts fixSta) + - 1 * evalValue env fixSta a \<le> 0 then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a)) (accounts fixSta)))) (fixSta \<lparr>accounts := pps (giveMoney b (Party (owner terms)) token_ada (if moneyInAccount b token_ada (accounts fixSta) + - 1 * evalValue env fixSta a \<le> 0 then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a) (updateMoneyInAccount b token_ada (moneyInAccount b token_ada (accounts fixSta) + - 1 * (if moneyInAccount b token_ada (accounts fixSta) + - 1 * evalValue env fixSta a \<le> 0 then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a)) (accounts fixSta)))\<rparr>) Close \<noteq> Reduced wa ef sta cont"
-    { assume "Reduced (ReducePartialPay b (Party (owner terms)) token_ada (if moneyInAccount b token_ada (accounts fixSta) + - 1 * evalValue env fixSta a \<le> 0 then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a) (evalValue env fixSta a)) (rr (giveMoney b (Party (owner terms)) token_ada (if moneyInAccount b token_ada (accounts fixSta) + - 1 * evalValue env fixSta a \<le> 0 then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a) (updateMoneyInAccount b token_ada (moneyInAccount b token_ada (accounts fixSta) + - 1 * (if moneyInAccount b token_ada (accounts fixSta) + - 1 * evalValue env fixSta a \<le> 0 then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a)) (accounts fixSta)))) (fixSta \<lparr>accounts := pps (giveMoney b (Party (owner terms)) token_ada (if moneyInAccount b token_ada (accounts fixSta) + - 1 * evalValue env fixSta a \<le> 0 then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a) (updateMoneyInAccount b token_ada (moneyInAccount b token_ada (accounts fixSta) + - 1 * (if moneyInAccount b token_ada (accounts fixSta) + - 1 * evalValue env fixSta a \<le> 0 then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a)) (accounts fixSta)))\<rparr>) Close \<noteq> (case giveMoney b (Party (owner terms)) token_ada (if moneyInAccount b token_ada (accounts fixSta) + - 1 * evalValue env fixSta a \<le> 0 then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a) (updateMoneyInAccount b token_ada (moneyInAccount b token_ada (accounts fixSta) + - 1 * (if moneyInAccount b token_ada (accounts fixSta) + - 1 * evalValue env fixSta a \<le> 0 then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a)) (accounts fixSta)) of (r, ps) \<Rightarrow> Reduced (if (if moneyInAccount b token_ada (accounts fixSta) \<le> evalValue env fixSta a then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a) < evalValue env fixSta a then ReducePartialPay b (Party (owner terms)) token_ada (if moneyInAccount b token_ada (accounts fixSta) \<le> evalValue env fixSta a then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a) (evalValue env fixSta a) else ReduceNoWarning) r (fixSta\<lparr>accounts := ps\<rparr>) Close)"
-      { assume "Reduced wa ef sta cont \<noteq> Reduced (if (if moneyInAccount b token_ada (accounts fixSta) \<le> evalValue env fixSta a then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a) < evalValue env fixSta a then ReducePartialPay b (Party (owner terms)) token_ada (if moneyInAccount b token_ada (accounts fixSta) \<le> evalValue env fixSta a then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a) (evalValue env fixSta a) else ReduceNoWarning) (rr (giveMoney b (Party (owner terms)) token_ada (if moneyInAccount b token_ada (accounts fixSta) + - 1 * evalValue env fixSta a \<le> 0 then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a) (updateMoneyInAccount b token_ada (moneyInAccount b token_ada (accounts fixSta) + - 1 * (if moneyInAccount b token_ada (accounts fixSta) + - 1 * evalValue env fixSta a \<le> 0 then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a)) (accounts fixSta)))) (fixSta \<lparr>accounts := pps (giveMoney b (Party (owner terms)) token_ada (if moneyInAccount b token_ada (accounts fixSta) + - 1 * evalValue env fixSta a \<le> 0 then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a) (updateMoneyInAccount b token_ada (moneyInAccount b token_ada (accounts fixSta) + - 1 * (if moneyInAccount b token_ada (accounts fixSta) + - 1 * evalValue env fixSta a \<le> 0 then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a)) (accounts fixSta)))\<rparr>) Close"
-        then have "Reduced wa ef sta cont \<noteq> (case (rr (giveMoney b (Party (owner terms)) token_ada (if moneyInAccount b token_ada (accounts fixSta) + - 1 * evalValue env fixSta a \<le> 0 then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a) (updateMoneyInAccount b token_ada (moneyInAccount b token_ada (accounts fixSta) + - 1 * (if moneyInAccount b token_ada (accounts fixSta) + - 1 * evalValue env fixSta a \<le> 0 then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a)) (accounts fixSta))), pps (giveMoney b (Party (owner terms)) token_ada (if moneyInAccount b token_ada (accounts fixSta) + - 1 * evalValue env fixSta a \<le> 0 then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a) (updateMoneyInAccount b token_ada (moneyInAccount b token_ada (accounts fixSta) + - 1 * (if moneyInAccount b token_ada (accounts fixSta) + - 1 * evalValue env fixSta a \<le> 0 then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a)) (accounts fixSta)))) of (r, ps) \<Rightarrow> Reduced (if (if moneyInAccount b token_ada (accounts fixSta) \<le> evalValue env fixSta a then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a) < evalValue env fixSta a then ReducePartialPay b (Party (owner terms)) token_ada (if moneyInAccount b token_ada (accounts fixSta) \<le> evalValue env fixSta a then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a) (evalValue env fixSta a) else ReduceNoWarning) r (fixSta\<lparr>accounts := ps\<rparr>) Close)"
-          by force
-        then have "Reduced (ReduceNonPositivePay b (Party (owner terms)) token_ada (evalValue env fixSta a)) ReduceNoPayment fixSta Close = (if evalValue env fixSta a \<le> 0 then Reduced (ReduceNonPositivePay b (Party (owner terms)) token_ada (evalValue env fixSta a)) ReduceNoPayment fixSta Close else case giveMoney b (Party (owner terms)) token_ada (if moneyInAccount b token_ada (accounts fixSta) + - 1 * evalValue env fixSta a \<le> 0 then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a) (updateMoneyInAccount b token_ada (moneyInAccount b token_ada (accounts fixSta) + - 1 * (if moneyInAccount b token_ada (accounts fixSta) + - 1 * evalValue env fixSta a \<le> 0 then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a)) (accounts fixSta)) of (r, ps) \<Rightarrow> Reduced (if (if moneyInAccount b token_ada (accounts fixSta) \<le> evalValue env fixSta a then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a) < evalValue env fixSta a then ReducePartialPay b (Party (owner terms)) token_ada (if moneyInAccount b token_ada (accounts fixSta) \<le> evalValue env fixSta a then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a) (evalValue env fixSta a) else ReduceNoWarning) r (fixSta\<lparr>accounts := ps\<rparr>) Close)"
-          using f4 a1 by (smt (z3)) }
-      then have "cont = Close \<or> Reduced (ReduceNonPositivePay b (Party (owner terms)) token_ada (evalValue env fixSta a)) ReduceNoPayment fixSta Close = (if evalValue env fixSta a \<le> 0 then Reduced (ReduceNonPositivePay b (Party (owner terms)) token_ada (evalValue env fixSta a)) ReduceNoPayment fixSta Close else case giveMoney b (Party (owner terms)) token_ada (if moneyInAccount b token_ada (accounts fixSta) + - 1 * evalValue env fixSta a \<le> 0 then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a) (updateMoneyInAccount b token_ada (moneyInAccount b token_ada (accounts fixSta) + - 1 * (if moneyInAccount b token_ada (accounts fixSta) + - 1 * evalValue env fixSta a \<le> 0 then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a)) (accounts fixSta)) of (r, ps) \<Rightarrow> Reduced (if (if moneyInAccount b token_ada (accounts fixSta) \<le> evalValue env fixSta a then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a) < evalValue env fixSta a then ReducePartialPay b (Party (owner terms)) token_ada (if moneyInAccount b token_ada (accounts fixSta) \<le> evalValue env fixSta a then moneyInAccount b token_ada (accounts fixSta) else evalValue env fixSta a) (evalValue env fixSta a) else ReduceNoWarning) r (fixSta\<lparr>accounts := ps\<rparr>) Close)"
-        by fastforce }
-    then have ?thesis
-      using f3 f2 a1 by (smt (z3)) }
-  then show ?thesis
-    by fastforce
-qed
-
+  by (meson reduceContractStepPay_preservesCont)
 
 lemma contractLoopReducedEqualsSettlement : "ps \<noteq> [] \<or> qs \<noteq> [] \<Longrightarrow>
                                              invariantHoldsForAuction terms m ps qs fixSta \<Longrightarrow>
@@ -191,5 +171,39 @@ lemma auctionSettlementSafe_reduceContractStep : "invariantHoldsForAuction terms
                                                   reduceContractStep env fixSta (contractLoop m ps qs terms) = Reduced wa ef sta cont \<Longrightarrow> 
                                                   cont = Close \<or> (cont = settle m terms \<and> invariantHoldsForAuction terms m [] [] sta)"
   by (metis auctionSettlementSafe_reduceContractStepEmpty contractLoopReducedEqualsSettlement contractLoopReducedSatisfyInvariant)
+
+lemma payWithInvariantPositive_reduceContractStep: "invariantHoldsForAuction terms (Some (v, p)) [] [] fixSta \<Longrightarrow>
+                                                    evalValue env fixSta v > 0"
+  using invariantHoldsForAuction_def by auto
+
+lemma payWithInvariantEnoughMoney_reduceContractStep: "invariantHoldsForAuction terms (Some (v, p)) [] [] fixSta \<Longrightarrow>
+                                                       moneyToPay = evalValue env fixSta v \<Longrightarrow>
+                                                       balance = moneyInAccount p token (accounts fixSta) \<Longrightarrow>
+                                                       balance \<ge> moneyToPay"
+  using invariantHoldsForAuction_def by blast
+
+
+lemma reduceToSettlePreservesState: "reduceContractStep env fixSta (contractLoop m ps qs terms) = Reduced wa ef sta (settle m terms) \<Longrightarrow>
+                                     fixSta = sta"
+  oops
+
+
+
+lemma auctionIsSafe_reduceContractStep : "invariantHoldsForAuction terms m ps qs fixSta \<Longrightarrow> 
+                                          reduceContractStep env fixSta (contractLoop m ps qs terms) = Reduced wa ef sta cont \<Longrightarrow> 
+                                          wa = ReduceNoWarning"
+  oops
+
+
+lemma auctionIsSafe_reductionLoop : "wa = [] \<Longrightarrow> invariantHoldsForAuction terms m ps qs fixSta \<Longrightarrow>
+                                   reductionLoop reducedBefore env fixSta (contractLoop m ps qs terms) wa ef = ContractQuiescent reducedAfter reduceWarns pays curState cont \<Longrightarrow>
+                                   reduceWarns = []"
+  oops
+
+
+
+
+
+
 
 
