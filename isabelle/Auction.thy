@@ -92,7 +92,6 @@ definition invariantHoldsForAuction :: "AuctionTerms \<Rightarrow> AuctionWinner
                                                   \<and> (\<forall>x y . m = Some (x, y) \<longrightarrow> ((lookup (y, token_ada) (accounts curState) = lookup (partyToValueId y) (boundValues curState))
                                                           \<and> (findWithDefault 0 (partyToValueId y) (boundValues curState) > 0)
                                                           \<and> (UseValue (partyToValueId y)) = x))
-                                                  \<and> (\<forall>x y env token. m = Some (x, y) \<longrightarrow> evalValue env curState x \<le> moneyInAccount y token (accounts curState))
                                                   \<and> (minBid terms > 0))"
 
 lemma applyCasesOfMap : "(\<And> p applyWarn newState cont2. p \<in> set ps \<Longrightarrow> applyCases env curState head [f p] = Applied applyWarn newState cont2 \<Longrightarrow> applyWarn = ApplyNoWarning)
@@ -171,35 +170,50 @@ lemma auctionSettlementSafe_reduceContractStep : "invariantHoldsForAuction terms
                                                   reduceContractStep env fixSta (contractLoop m ps qs terms) = Reduced wa ef sta cont \<Longrightarrow> 
                                                   cont = Close \<or> (cont = settle m terms \<and> invariantHoldsForAuction terms m [] [] sta)"
   by (metis auctionSettlementSafe_reduceContractStepEmpty contractLoopReducedEqualsSettlement contractLoopReducedSatisfyInvariant)
+  
+lemma auctionIsSafe_reduceContractStepEmpty : "invariantHoldsForAuction terms m [] [] fixSta \<Longrightarrow>
+                                               reduceContractStep env fixSta (contractLoop m [] [] terms) = Reduced wa ef newSta cont \<Longrightarrow>
+                                               wa = ReduceNoWarning"
+  apply (simp only:contractLoop.simps)
+  apply (cases m)
+   apply (simp add: closeIsSafe_reduceContractStep)
+  apply (auto simp only:invariantHoldsForAuction_def settle.simps reduceContractStep.simps Let_def refl
+              split:if_split_asm prod.splits)
+   apply simp
+  by simp
 
-lemma payWithInvariantPositive_reduceContractStep: "invariantHoldsForAuction terms (Some (v, p)) [] [] fixSta \<Longrightarrow>
-                                                    evalValue env fixSta v > 0"
-  using invariantHoldsForAuction_def by auto
-
-lemma payWithInvariantEnoughMoney_reduceContractStep: "invariantHoldsForAuction terms (Some (v, p)) [] [] fixSta \<Longrightarrow>
-                                                       moneyToPay = evalValue env fixSta v \<Longrightarrow>
-                                                       balance = moneyInAccount p token (accounts fixSta) \<Longrightarrow>
-                                                       balance \<ge> moneyToPay"
-  using invariantHoldsForAuction_def by blast
-
-
-lemma reduceToSettlePreservesState: "reduceContractStep env fixSta (contractLoop m ps qs terms) = Reduced wa ef sta (settle m terms) \<Longrightarrow>
-                                     fixSta = sta"
-  oops
+lemma auctionIsSafe_reduceContractStep : "invariantHoldsForAuction terms m ps qs fixSta \<Longrightarrow>
+                                          reduceContractStep env fixSta (contractLoop m ps qs terms) = Reduced wa ef newSta cont
+                                          \<Longrightarrow> wa = ReduceNoWarning"
+  apply (cases ps)
+   apply (cases qs)
+    apply (meson auctionIsSafe_reduceContractStepEmpty)
+   apply (simp only:contractLoop.simps)
+  subgoal for a list
+    by (auto simp only:settle.simps reduceContractStep.simps Let_def split:if_split_asm prod.splits)
+  apply (cases qs)
+   by (auto simp only:settle.simps contractLoop.simps reduceContractStep.simps Let_def split:if_split_asm prod.splits)
 
 
-
-lemma auctionIsSafe_reduceContractStep : "invariantHoldsForAuction terms m ps qs fixSta \<Longrightarrow> 
-                                          reduceContractStep env fixSta (contractLoop m ps qs terms) = Reduced wa ef sta cont \<Longrightarrow> 
-                                          wa = ReduceNoWarning"
-  oops
-
-
-lemma auctionIsSafe_reductionLoop : "wa = [] \<Longrightarrow> invariantHoldsForAuction terms m ps qs fixSta \<Longrightarrow>
-                                   reductionLoop reducedBefore env fixSta (contractLoop m ps qs terms) wa ef = ContractQuiescent reducedAfter reduceWarns pays curState cont \<Longrightarrow>
-                                   reduceWarns = []"
-  oops
-
+lemma auctionIsSafe_reductionLoop : "wa = [] \<Longrightarrow> invariantHoldsForAuction terms m ps qs curState \<Longrightarrow>
+                                                 reductionLoop reducedBefore env curState (contractLoop m ps qs terms) wa ef = ContractQuiescent reducedAfter reduceWarns pays newState cont
+                                     \<Longrightarrow> reduceWarns = []"
+  apply (auto simp only:reductionLoop.simps[of reducedBefore env curState "(contractLoop m ps qs terms)" "[]" ef] Let_def split:ReduceStepResult.splits if_split_asm ReduceEffect.splits)
+  apply (simp only:reductionLoop.simps)
+  apply (simp only:Let_def)
+     apply (auto simp only:reductionLoop.simps[of reducedBefore env curState "(contractLoop m ps qs terms)" "[]" ef] Let_def split:ReduceStepResult.splits if_split_asm ReduceEffect.splits)
+  apply (metis auctionSettlementSafe_reduceContractStep auctionSettlementSafe_reduceContractStepEmpty closeIdemp_reduceContractStep closeIsSafe_reductionLoop contractLoop.simps(1))
+       apply (metis auctionSettlementSafe_reduceContractStep auctionSettlementSafe_reduceContractStepEmpty closeIdemp_reduceContractStep closeIsSafe_reductionLoop contractLoop.simps(1))
+      apply (metis auctionIsSafe_reduceContractStep auctionSettlementSafe_reduceContractStep closeIsSafe_reduceContractStep contractLoop.simps(1))
+     apply (metis auctionIsSafe_reduceContractStepEmpty auctionSettlementSafe_reduceContractStep closeIsSafe_reduceContractStep contractLoop.simps(1))
+  apply (simp only:reductionLoop.simps)
+    apply (auto simp only:reductionLoop.simps[of reducedBefore env curState "(contractLoop m ps qs terms)" "[]" ef] Let_def split:ReduceStepResult.splits if_split_asm ReduceEffect.splits)
+       apply (metis auctionSettlementSafe_reduceContractStep auctionSettlementSafe_reduceContractStepEmpty closeIdemp_reduceContractStep closeIsSafe_reductionLoop contractLoop.simps(1))
+      apply (metis auctionSettlementSafe_reduceContractStep auctionSettlementSafe_reduceContractStepEmpty closeIdemp_reduceContractStep closeIsSafe_reductionLoop contractLoop.simps(1))
+     apply (metis auctionIsSafe_reduceContractStepEmpty auctionSettlementSafe_reduceContractStep closeIsSafe_reduceContractStep contractLoop.simps(1))
+    apply (metis auctionIsSafe_reduceContractStep auctionSettlementSafe_reduceContractStep closeIsSafe_reduceContractStep contractLoop.simps(1))
+   apply (simp add: auctionIsSafe_reduceContractStep)
+  by (simp add: auctionIsSafe_reduceContractStep)
 
 
 
