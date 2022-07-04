@@ -215,9 +215,8 @@ lemma auctionIsSafe_reductionLoop : "wa = [] \<Longrightarrow> invariantHoldsFor
    apply (simp add: auctionIsSafe_reduceContractStep)
   by (simp add: auctionIsSafe_reduceContractStep)
 
-
-
-
-
-
-
+lemma auctionIsSafe_reduceContractUntilQuiescent : "invariantHoldsForAuction terms m ps qs fixSta \<Longrightarrow>
+                                                    reduceContractUntilQuiescent env fixSta (contractLoop m ps qs terms) = ContractQuiescent reduced reduceWarns pays curState cont \<Longrightarrow>
+                                                    reduceWarns = []"
+  by (metis auctionIsSafe_reductionLoop reduceContractUntilQuiescent.simps)
+ 
