@@ -275,55 +275,60 @@ lemma reduceUntilQuiescentApplyInput_isSafe : "invariantHoldsForAuction terms m 
   using reduceUntilQuiescentIsFixedOrClose apply (metis ApplyResult.simps(3) applyInput.simps(2) applyInputContractLoopNoWarnings list.distinct(1))
   using reduceUntilQuiescentIsFixedOrClose by (metis ApplyResult.simps(3) applyInput.simps(2) applyInputContractLoopNoWarnings list.distinct(1))
 
+lemma applyInputHandleChooseAndReduceLetPreservesInvariant : "invariantHoldsForAuction terms m ps qs curState \<Longrightarrow> x \<in> set qs \<Longrightarrow>
+                                                              applyCases env curState head [ handleChoose m ps qs terms x ] = Applied applyWarn partialState letCont \<Longrightarrow>
+                                                              reduceContractStep env partialState letCont = Reduced wa ef newState cont \<Longrightarrow>
+                                                              invariantHoldsForAuction terms m (p # ps) (remove x qs) newState"
+
+  sorry
+
 lemma auctionIsSafe_applyAllInputs : "invariantHoldsForAuction terms m ps qs fixSta \<Longrightarrow>
                                       applyAllInputs env fixSta (contractLoop m ps qs terms) inps = ApplyAllSuccess reduced warnings payments newState cont \<Longrightarrow>
                                       warnings = []"
   apply (cases inps)
    apply (smt (z3) ApplyAllResult.inject ApplyAllResult.simps(5) ReduceResult.exhaust ReduceResult.simps(4) ReduceResult.simps(5) append_Nil applyAllInputs.simps applyAllLoop.simps auctionIsSafe_reduceContractUntilQuiescent convertReduceWarnings.simps(1) list.simps(4))
-  apply (cases ps)
-   apply (cases qs)
+  apply (cases qs)
+   apply (cases ps)
     apply (meson settleIsSafe_applyAllInputs)
+  subgoal for head inpsRest headDeposit depositRest
+    apply (simp del:reduceContractUntilQuiescent.simps)
+    using applyInputHandleDepositPreservesInvariant
+    sorry
+  sorry
 
 
 
 
 
-
-   
-
-
-
-
+lemma fixingIntervalPreservesInvariant : "invariantHoldsForAuction terms m ps qs sta \<Longrightarrow>
+                                          fixInterval (low, high) sta = IntervalTrimmed env fixSta \<Longrightarrow> 
+                                          invariantHoldsForAuction terms m ps qs fixSta"
+  by (smt (verit, best) IntervalResult.distinct(1) IntervalResult.inject(1) State.select_convs(1) State.select_convs(3) State.surjective State.update_convs(4) fixInterval.simps invariantHoldsForAuction_def)
 
 
+lemma auctionIsSafe_computeTransactionFixSta : "fixInterval (interval tra) sta = IntervalTrimmed env fixSta \<Longrightarrow> 
+                                                invariantHoldsForAuction terms m ps qs fixSta \<Longrightarrow>
+                                                computeTransaction tra sta (contractLoop m ps qs terms) = TransactionOutput trec \<Longrightarrow>
+                                                txOutWarnings trec = []"
+  by (smt (z3) ApplyAllResult.exhaust ApplyAllResult.simps(10) ApplyAllResult.simps(8) ApplyAllResult.simps(9) IntervalResult.simps(5) TransactionOutput.distinct(1) TransactionOutput.inject(1) TransactionOutputRecord.ext_inject TransactionOutputRecord.surjective auctionIsSafe_applyAllInputs computeTransaction.simps)
+
+lemma auctionIsSafe_computeTransaction : "invariantHoldsForAuction terms m ps qs sta \<Longrightarrow>
+                                          computeTransaction tra sta (contractLoop m ps qs terms) = TransactionOutput trec \<Longrightarrow>
+                                          txOutWarnings trec = []"
+  using fixingIntervalPreservesInvariant auctionIsSafe_computeTransactionFixSta
+  by (smt (verit, ccfv_SIG) IntervalResult.simps(6) closeIsSafe computeTransaction.simps fixInterval.elims)
+
+theorem auctionIsSafe : "invariantHoldsForAuction terms m ps qs (emptyState sl) \<Longrightarrow>
+                         playTrace slot (contractLoop m ps qs terms) txList  = TransactionOutput txOut \<Longrightarrow> 
+                         txOutWarnings txOut = []"
+  apply (induction txList)
+   apply auto[1]
+  apply (simp del:applyAllInputs.simps)
 
 
-
-
-
-
-
-
-
-
-
-
-
+  
 
   oops
-  (*
-  
-  apply (simp only:applyAllInputs.simps)
-  apply (cases inps)
-  subgoal
-    apply (simp del:reduceContractUntilQuiescent.simps)
-    using auctionIsSafe_reduceContractUntilQuiescent
-    by (metis (no_types, lifting) ApplyAllResult.distinct(3) ApplyAllResult.inject ReduceResult.exhaust ReduceResult.simps(4) ReduceResult.simps(5) append_Nil2 convertReduceWarnings.simps(1) list.simps(4))
-  apply (simp del:reduceContractUntilQuiescent.simps)
-  subgoal for input rest
-    apply (cases ps)
-    apply (cases qs)
-
-*)
 
 
+end
