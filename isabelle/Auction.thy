@@ -92,7 +92,8 @@ definition invariantHoldsForAuction :: "AuctionTerms \<Rightarrow> AuctionWinner
                                                   \<and> (\<forall>x y . m = Some (x, y) \<longrightarrow> ((lookup (y, token_ada) (accounts curState) = lookup (partyToValueId y) (boundValues curState))
                                                           \<and> (findWithDefault 0 (partyToValueId y) (boundValues curState) > 0)
                                                           \<and> (UseValue (partyToValueId y)) = x))
-                                                  \<and> (minBid terms > 0))"
+                                                  \<and> (minBid terms > 0)
+                                                  \<and> (distinct (ps @ qs)))"
 
 lemma applyCasesOfMap : "(\<And> p applyWarn newState cont2. p \<in> set ps \<Longrightarrow> applyCases env curState head [f p] = Applied applyWarn newState cont2 \<Longrightarrow> applyWarn = ApplyNoWarning)
                                \<Longrightarrow> (applyCases env curState head (map f ps) = Applied applyWarn newState cont2 \<Longrightarrow> applyWarn = ApplyNoWarning)"
@@ -163,8 +164,12 @@ lemma contractLoopReducedSatisfyInvariant : "ps \<noteq> [] \<or> qs \<noteq> []
                                              reduceContractStep env fixSta (contractLoop m ps qs terms) = Reduced wa ef sta cont \<Longrightarrow>
                                              cont = settle m terms \<Longrightarrow> 
                                              invariantHoldsForAuction terms m [] [] sta"
-  by (smt (verit, best) reduceContractLoopEqualsSettlement in_set_member invariantHoldsForAuction_def member_rec(2))
-
+  apply (simp only:invariantHoldsForAuction_def)
+  apply auto
+  apply (smt (verit, ccfv_SIG) Contract.inject(1) distinct_append findWithDefault.simps invariantHoldsForAuction_def member.elims(2) reduceContractLoopEqualsSettlement settle.simps(2))
+  apply (smt (verit, ccfv_SIG) Contract.inject(1) distinct_append findWithDefault.simps invariantHoldsForAuction_def member.elims(2) reduceContractLoopEqualsSettlement settle.simps(2))
+  apply (smt (verit, ccfv_SIG) Contract.inject(1) distinct_append findWithDefault.simps invariantHoldsForAuction_def member.elims(2) reduceContractLoopEqualsSettlement settle.simps(2))
+  by (smt (verit, ccfv_SIG) Contract.inject(1) distinct_append findWithDefault.simps invariantHoldsForAuction_def member.elims(2) reduceContractLoopEqualsSettlement settle.simps(2))
 
 lemma auctionSettlementSafe_reduceContractStep : "invariantHoldsForAuction terms m ps qs fixSta \<Longrightarrow>
                                                   reduceContractStep env fixSta (contractLoop m ps qs terms) = Reduced wa ef sta cont \<Longrightarrow> 
@@ -292,13 +297,8 @@ lemma auctionIsSafe_applyAllInputs : "invariantHoldsForAuction terms m ps qs fix
     apply (meson settleIsSafe_applyAllInputs)
   subgoal for head inpsRest headDeposit depositRest
     apply (simp del:reduceContractUntilQuiescent.simps)
-    using applyInputHandleDepositPreservesInvariant
     sorry
   sorry
-
-
-
-
 
 lemma fixingIntervalPreservesInvariant : "invariantHoldsForAuction terms m ps qs sta \<Longrightarrow>
                                           fixInterval (low, high) sta = IntervalTrimmed env fixSta \<Longrightarrow> 
