@@ -280,25 +280,39 @@ lemma reduceUntilQuiescentApplyInput_isSafe : "invariantHoldsForAuction terms m 
   using reduceUntilQuiescentIsFixedOrClose apply (metis ApplyResult.simps(3) applyInput.simps(2) applyInputContractLoopNoWarnings list.distinct(1))
   using reduceUntilQuiescentIsFixedOrClose by (metis ApplyResult.simps(3) applyInput.simps(2) applyInputContractLoopNoWarnings list.distinct(1))
 
-lemma applyInputHandleChooseAndReduceLetPreservesInvariant : "invariantHoldsForAuction terms m ps qs curState \<Longrightarrow> x \<in> set qs \<Longrightarrow>
-                                                              applyCases env curState head [ handleChoose m ps qs terms x ] = Applied applyWarn partialState letCont \<Longrightarrow>
-                                                              reduceContractStep env partialState letCont = Reduced wa ef newState cont \<Longrightarrow>
-                                                              invariantHoldsForAuction terms m (p # ps) (remove x qs) newState"
+(*
+  Lemmas con respecto a la preservación de invariante al aplicar un input + algun paso más
+*)
 
+lemma applyInputHandleChoosePreservesInvariant : "invariantHoldsForAuction terms m ps qs fixSta \<Longrightarrow>
+                                                  applyInput env fixSta (IChoice (choice p) cho) (contractLoop m ps qs terms) = 
+                                                  Applied applyWarn curState (Let (partyToValueId p) (ChoiceValue (choice p)) (contractLoop m (p # ps) (remove p qs) terms)) \<Longrightarrow>
+                                                  (invariantHoldsForAuction terms m ps (remove p qs) curState \<and> (findWithDefault 0 (choice p) (choices curState) > 0))"
   sorry
+
+lemma reduceLetAfterApplyInputHandleChoosePreservesInvariant : "findWithDefault 0 (choice p) (choices fixSta) > 0 \<Longrightarrow>
+                                                                invariantHoldsForAuction terms m ps qs fixSta \<Longrightarrow>
+                                                                reduceContractStep env fixSta (Let (partyToValueId p) (ChoiceValue (choice p)) (contractLoop m (p # ps) (remove p qs) terms)) =
+                                                                Reduced wa ef curState (contractLoop m (p # ps) (remove p qs) terms) \<Longrightarrow>
+                                                                invariantHoldsForAuction terms m (p # ps) (remove p qs) curState"
+  sorry
+
+lemma applyAllInputsPreservesInvariantOrClose : "invariantHoldsForAuction terms m ps qs fixSta \<Longrightarrow>
+                                                 applyAllInputs env fixSta (contractLoop m ps qs terms) inps = ApplyAllSuccess reduced warnings payments newState cont \<Longrightarrow>
+                                                 cont = Close \<or> (cont = contractLoop newm newps newqs terms \<and> invariantHoldsForAuction terms newm newps newqs newState)"
+  sorry
+
+lemma applyAllInputsToClose_isSafe : "invariantHoldsForAuction terms m ps qs fixSta \<Longrightarrow>
+                                      applyAllInputs env fixSta (contractLoop m ps qs terms) inps = ApplyAllSuccess reduced warnings payments newState Close \<Longrightarrow>
+                                      warnings = []"
+  sorry
+
 
 lemma auctionIsSafe_applyAllInputs : "invariantHoldsForAuction terms m ps qs fixSta \<Longrightarrow>
                                       applyAllInputs env fixSta (contractLoop m ps qs terms) inps = ApplyAllSuccess reduced warnings payments newState cont \<Longrightarrow>
                                       warnings = []"
-  apply (cases inps)
-   apply (smt (z3) ApplyAllResult.inject ApplyAllResult.simps(5) ReduceResult.exhaust ReduceResult.simps(4) ReduceResult.simps(5) append_Nil applyAllInputs.simps applyAllLoop.simps auctionIsSafe_reduceContractUntilQuiescent convertReduceWarnings.simps(1) list.simps(4))
-  apply (cases qs)
-   apply (cases ps)
-    apply (meson settleIsSafe_applyAllInputs)
-  subgoal for head inpsRest headDeposit depositRest
-    apply (simp del:reduceContractUntilQuiescent.simps)
-    sorry
-  sorry
+  using applyAllInputsToClose_isSafe applyAllInputsPreservesInvariantOrClose
+  by (metis contractLoop.simps(1) settle.simps(1)) 
 
 lemma fixingIntervalPreservesInvariant : "invariantHoldsForAuction terms m ps qs sta \<Longrightarrow>
                                           fixInterval (low, high) sta = IntervalTrimmed env fixSta \<Longrightarrow> 
@@ -318,17 +332,34 @@ lemma auctionIsSafe_computeTransaction : "invariantHoldsForAuction terms m ps qs
   using fixingIntervalPreservesInvariant auctionIsSafe_computeTransactionFixSta
   by (smt (verit, ccfv_SIG) IntervalResult.simps(6) closeIsSafe computeTransaction.simps fixInterval.elims)
 
+
+lemma computeTransactionPreservesInvariantOrClose : "invariantHoldsForAuction terms m ps qs sta \<Longrightarrow>
+                                                      computeTransaction tra sta (contractLoop m ps qs terms) = TransactionOutput trec \<Longrightarrow>
+                                                      cont = txOutContract trec \<Longrightarrow> newState = txOutState trec \<Longrightarrow>
+                                                      cont = Close \<or> (cont = contractLoop newm newps newqs terms \<and> invariantHoldsForAuction terms newm newps newqs newState)"
+  sorry
+
+lemma auctionIsSafe_playTraceAux : "invariantHoldsForAuction terms m ps qs sta \<Longrightarrow>
+                                    playTraceAux \<lparr> txOutWarnings = Nil
+                                                 , txOutPayments = Nil
+                                                 , txOutState = emptyState sl
+                                                 , txOutContract = (contractLoop m ps qs terms) \<rparr> (Cons h t) = TransactionOutput transResRec \<Longrightarrow>
+                                    txOutWarnings transResRec = []"
+  apply (simp only:playTraceAux.simps Let_def)
+  apply (split TransactionOutput.splits)
+  defer
+   apply simp
+  using fixingIntervalPreservesInvariant apply (simp del:applyAllInputs.simps)
+  using applyAllInputsToClose_isSafe applyAllInputsPreservesInvariantOrClose
+
+
+  sorry
+
+
 theorem auctionIsSafe : "invariantHoldsForAuction terms m ps qs (emptyState sl) \<Longrightarrow>
                          playTrace slot (contractLoop m ps qs terms) txList  = TransactionOutput txOut \<Longrightarrow> 
                          txOutWarnings txOut = []"
-  apply (induction txList)
-   apply auto[1]
-  apply (simp del:applyAllInputs.simps)
-
-
-  
-
-  oops
+  by (smt (verit, best) TransactionOutput.inject(1) TransactionOutputRecord.ext_inject TransactionOutputRecord.surjective auctionIsSafe_playTraceAux playTrace.simps playTraceAux.elims)
 
 
 end
